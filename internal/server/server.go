@@ -5,11 +5,13 @@ import (
 
 )
 
-type Server struct{
+// Server represents the main application server
+type Server struct {
     ServiceManager *service.ServiceManager
 }
 
-func NewServer() *Server{
+// NewServer creates and returns a new Server instance
+func NewServer() *Server {
     return &Server{
         ServiceManager: service.NewServiceManager(),
     }

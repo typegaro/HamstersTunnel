@@ -7,7 +7,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// PingHandler risponde con "pong"
+// PingHandler responds with a simple "pong" message
 func PingHandler(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]string{"message": "pong"})
 }

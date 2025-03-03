@@ -9,10 +9,10 @@ func main() {
 	e := echo.New()
     s := server.NewServer()
 
-	// Configura le rotte
-	server.SetupRoutes(e,s)
+	// Configure routes
+	server.SetupRoutes(e, s)
     e.Use(server.LoggerMiddleware)
 
-	// Avvia il server
+	// Start the server
 	e.Logger.Fatal(e.Start(":8080"))
 }
