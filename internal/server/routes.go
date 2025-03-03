@@ -1,9 +1,10 @@
 package server
 
-import "github.com/labstack/echo/v4"
+import (
+    "github.com/labstack/echo/v4"
+)
 
-
-func SetupRoutes(e *echo.Echo) {
+func SetupRoutes(e *echo.Echo,s *Server) {
 	e.GET("/ping", PingHandler)
-	e.POST("/service/:service", NewServiceHandler) 
+	e.POST("/service", s.ServiceManager.HandlerNewService) 
 }

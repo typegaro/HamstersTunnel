@@ -1,4 +1,4 @@
-package main
+package main 
 
 import (
 	"github.com/labstack/echo/v4"
@@ -7,9 +7,10 @@ import (
 
 func main() {
 	e := echo.New()
+    s := server.NewServer()
 
 	// Configura le rotte
-	server.SetupRoutes(e)
+	server.SetupRoutes(e,s)
     e.Use(server.LoggerMiddleware)
 
 	// Avvia il server
