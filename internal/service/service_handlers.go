@@ -2,6 +2,7 @@ package service
 
 import (
 	"net/http"
+    "strconv"
     
 	"github.com/labstack/echo/v4"
     "github.com/typegaro/HamstersTunnel/pkg/models/service"
@@ -10,8 +11,8 @@ import (
 // Handler for creating a new service
 func (s *ServiceManager) HandlerNewService(c echo.Context) error {
 
-	save := c.QueryParam("save")
-    if save != "true" && save != "false" {
+    save, err := strconv.ParseBool(c.QueryParam("save"))
+    if err!=nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid save value"})
 	}
 
@@ -20,15 +21,16 @@ func (s *ServiceManager) HandlerNewService(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request"})
 	}
 
-    //TODO: Handle the error 
-	publicService,_ := GeneratePublicService(req)
+	publicService,err := GeneratePublicService(req)
+    if err!= nil{
+        return c.JSON(http.StatusInternalServerError,map[string]string{"error": "failed to generate service"})
+    }
 
-	// Salva il servizio su file
-	//err := SaveServiceToFile(service)
-	//if err != nil {
-	//	return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to save service"})
-	//}
+    if save {
+        if err := s.memory.SaveService(&publicService); err != nil {
+		    return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to save service"})
+	    }
+    }
 
-	// Restituisci il PublicService come risposta
 	return c.JSON(http.StatusOK, map[string]string{"service_id": publicService.Info.Id})
 }

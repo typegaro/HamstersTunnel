@@ -8,6 +8,7 @@ import (
 func main() {
 	e := echo.New()
     s := server.NewServer()
+    s.Init()
 
 	// Configure routes
 	server.SetupRoutes(e, s)

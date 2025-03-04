@@ -16,3 +16,10 @@ func NewServer() *Server {
         ServiceManager: service.NewServiceManager(),
     }
 }
+
+func (s *Server) Init() error {
+    if err:=s.ServiceManager.Init(); err!= nil{
+        return err
+    }
+    return nil
+}

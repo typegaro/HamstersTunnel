@@ -1,11 +1,10 @@
 package models 
 
-
 type PublicService struct {
     Info ServiceInfo`json:"info"` 
-	HTTP  PortPair`json:"http_port_pair"`
-	TCP   PortPair `json:"tcp_port_pair"`
-	UDP   PortPair `json:"udp_port_pair"`
+	HTTP  *PortPair`json:"http_port_pair"`
+	TCP   *PortPair `json:"tcp_port_pair"`
+	UDP   *PortPair `json:"udp_port_pair"`
 	Active     bool   `json:"active"`
 }
 type ServiceInfo struct {
@@ -14,8 +13,8 @@ type ServiceInfo struct {
 }
 
 type PortPair struct{
-    External string `json:"external"`
-    Internal string `json:"internal"`
+    Public string `json:"public"`
+    Private string `json:"private"`
 }
 
 type NewServiceReq struct {
