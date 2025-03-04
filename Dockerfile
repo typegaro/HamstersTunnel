@@ -12,7 +12,7 @@ FROM alpine:latest
 
 RUN apk --no-cache add ca-certificates
 
-COPY --from=builder /bin/server /bin/server
+COPY --from=builder /app/cmd/server/bin/server /bin/server
 
 EXPOSE 8080
 
