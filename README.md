@@ -73,10 +73,10 @@ To run **HamstersTunnel** using Docker, follow these steps:
    If you want to use a different external port, you can modify the command like so:
 
    ```sh
-   docker run -p <porta-esterna>:8080 HamstersTunnel
+   docker run -p <external-port>:8080 HamstersTunnel
    ```
 
-   Replace `<porta-esterna>` with the desired port on your host (e.g., `9000:8080`).
+   Replace `<external-port>` with the desired port on your host (e.g., `9000:8080`).
 
 
 ## 🏆 Contributing

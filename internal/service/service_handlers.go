@@ -32,5 +32,9 @@ func (s *ServiceManager) HandlerNewService(c echo.Context) error {
 	    }
     }
 
-	return c.JSON(http.StatusOK, map[string]string{"service_id": publicService.Info.Id})
+	return c.JSON(http.StatusOK, map[string]string{
+    "service_id": publicService.Info.Id,
+    "tcp_private_port": publicService.TCP.Private,
+    "tcp_public_port": publicService.TCP.Public,
+})
 }

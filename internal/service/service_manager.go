@@ -146,7 +146,7 @@ func proxyConnection(src, dst net.Conn, wg *sync.WaitGroup) {
 		fmt.Printf("Error copying data from %v to %v: %v\n", src.RemoteAddr(), dst.RemoteAddr(), err)
 	}
 
-	time.Sleep(10 * time.Millisecond)
+	//time.Sleep(10 * time.Millisecond)
 
 	_, err = io.Copy(src, dst)
 	if err != nil {
