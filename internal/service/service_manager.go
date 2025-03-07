@@ -7,7 +7,8 @@ import (
 	"strconv"
 	"time"
 	"io"
-    "sync"
+	"sync"
+	"log"
 
 	"github.com/google/uuid"
 	"github.com/typegaro/HamstersTunnel/internal/memory"
@@ -23,7 +24,7 @@ type ServiceManager struct {
 }
 
 func NewServiceManager() *ServiceManager {
-	rand.Seed(time.Now().UnixNano()) 
+	rand.Seed(time.Now().UnixNano())
 
 	return &ServiceManager{
 		usedPorts: make(map[string]string),
@@ -33,30 +34,26 @@ func NewServiceManager() *ServiceManager {
 }
 
 func (sm *ServiceManager) Init() error {
-    sm.memory.Init()
-    if err := sm.loadService(); err != nil {
-        return fmt.Errorf("failed to initialize service manager: %w", err)
-    }
-    return nil
+	sm.memory.Init()
+	if err := sm.loadService(); err != nil {
+		return fmt.Errorf("failed to initialize service manager: %w", err)
+	}
+	return nil
 }
 
 func (sm *ServiceManager) loadService() error {
-    srvs, err := sm.memory.GetActiveServices()
-    if err != nil {
-        return err
-    }
+	srvs, err := sm.memory.GetActiveServices()
+	if err != nil {
+		return err
+	}
 
-    for _, srv := range srvs {
-        if srv.TCP != nil {
-            err := StartTCPProxy(srv.TCP.Public, srv.TCP.Private)
-            if err != nil {
-                fmt.Printf("Warning: failed to start TCP proxy for service %s: %v\n", srv.Info.Id, err)
-                continue // Continua invece di restituire l'errore
-            }
-        }
-        sm.addService(srv)
-    }
-    return nil
+	for _, srv := range srvs {
+		if srv.TCP != nil {
+			go StartTCPProxy(srv.TCP.Public, srv.TCP.Private)
+		}
+		sm.addService(srv)
+	}
+	return nil
 }
 
 func (sm *ServiceManager) addService(ps *models.PublicService) error {
@@ -74,7 +71,7 @@ func (sm *ServiceManager) removeService(ps *models.PublicService) error {
 	sm.mutex.Lock()
 	defer sm.mutex.Unlock()
 
-	if _, exists := sm.services[ps.Info.Id]; !exists { 
+	if _, exists := sm.services[ps.Info.Id]; !exists {
 		return fmt.Errorf("service with id %s not found", ps.Info.Id)
 	}
 	delete(sm.services, ps.Info.Id)
@@ -120,10 +117,7 @@ func GeneratePublicService(req models.NewServiceReq) (models.PublicService, erro
 			return ps, fmt.Errorf("failed to find an available private port: %w", err)
 		}
 
-		err = StartTCPProxy(publicPort, privatePort)
-		if err != nil {
-			return ps, fmt.Errorf("failed to start TCP proxy: %w", err)
-		}
+		go StartTCPProxy(publicPort, privatePort)
 
 		ps.TCP = &models.PortPair{
 			Public:  publicPort,
@@ -134,63 +128,68 @@ func GeneratePublicService(req models.NewServiceReq) (models.PublicService, erro
 	return ps, nil
 }
 
-func proxyConnection(src, dst net.Conn, wg *sync.WaitGroup) {
-	defer wg.Done()
-	defer src.Close()
-	defer dst.Close()
+func forwardData(src, dst net.Conn) {
+	go func() {
+		_, err := io.Copy(dst, src)
+		if err != nil {
+			if err.Error() == "use of closed network connection" {
+				log.Println("Connection closed by src while forwarding data to dst.")
+			} else {
+				log.Printf("Error forwarding data from src to dst: %v", err)
+			}
+		} else {
+			log.Println("Data forwarding from src to dst completed.")
+		}
+	}()
 
-	fmt.Println("Copying data from", src.RemoteAddr(), "to", dst.RemoteAddr())
-
-	_, err := io.Copy(dst, src)
+	_, err := io.Copy(src, dst)
 	if err != nil {
-		fmt.Printf("Error copying data from %v to %v: %v\n", src.RemoteAddr(), dst.RemoteAddr(), err)
-	}
-
-	//time.Sleep(10 * time.Millisecond)
-
-	_, err = io.Copy(src, dst)
-	if err != nil {
-		fmt.Printf("Error copying data from %v to %v: %v\n", dst.RemoteAddr(), src.RemoteAddr(), err)
+		if err.Error() == "use of closed network connection" {
+			log.Println("Connection closed by dst while forwarding data to src.")
+		} else {
+			log.Printf("Error forwarding data from dst to src: %v", err)
+		}
+	} else {
+		log.Println("Data forwarding from dst to src completed.")
 	}
 }
 
-func StartTCPProxy(publicPort, privatePort string) error {
-	listener, err := net.Listen("tcp", ":"+publicPort)
+func StartTCPProxy(publicPort, proxyPort string) error {
+	publicListener, err := net.Listen("tcp", ":"+publicPort)
 	if err != nil {
-		return fmt.Errorf("failed to start listener on port %s: %w", publicPort, err)
+		log.Fatalf("Unable to start listener on public port %s: %v", publicPort, err)
 	}
-	fmt.Println("TCP proxy listening on port:", publicPort)
+	defer publicListener.Close()
 
-	go func() {
-		defer listener.Close()
-		for {
-			clientConn, err := listener.Accept()
-			if err != nil {
-				fmt.Println("Error accepting connection:", err)
-				return
-			}
+	proxyListener, err := net.Listen("tcp", ":"+proxyPort)
+	if err != nil {
+		log.Fatalf("Unable to start listener on proxy port %s: %v", proxyPort, err)
+	}
+	defer proxyListener.Close()
 
-			serverConn, err := net.Dial("tcp", "127.0.0.1:"+privatePort)
-			if err != nil {
-				fmt.Println("Error connecting to private port:", err)
-				clientConn.Close()
-				continue
-			}
+	log.Printf("Remote proxy listening on ports %s (client) and %s (proxy)", publicPort, proxyPort)
 
-			var wg sync.WaitGroup
-			wg.Add(2)
+	proxyConn, err := proxyListener.Accept()
+	if err != nil {
+		log.Fatalf("Error accepting connection from local proxy: %v", err)
+	}
+	log.Println("Connection established with local proxy.")
 
-			go proxyConnection(clientConn, serverConn, &wg)
-			go proxyConnection(serverConn, clientConn, &wg)
-
-			wg.Wait()
+	for {
+		clientConn, err := publicListener.Accept()
+		if err != nil {
+			log.Printf("Error accepting connection from client: %v", err)
+			continue
 		}
-	}()
-	return nil
+
+		log.Println("Connection established with client.")
+		go forwardData(clientConn, proxyConn)
+		go forwardData(proxyConn, clientConn)
+	}
 }
 
 func findAvailablePort(blacklist []string) (string, error) {
-	for i := 0; i < 100; i++ { 
+	for i := 0; i < 100; i++ {
 		port := generateRandomPort()
 		portStr := strconv.Itoa(port)
 

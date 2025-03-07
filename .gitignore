@@ -1,2 +1,3 @@
 cmd/server/bin/
+cmd/client/bin/
 *.json
