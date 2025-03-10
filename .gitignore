@@ -1,3 +1,2 @@
-cmd/server/bin/
-cmd/client/bin/
+cmd/*/bin/*
 *.json

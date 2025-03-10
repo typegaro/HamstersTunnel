@@ -1,8 +1,7 @@
 package server 
 
 import (
-	"github.com/typegaro/HamstersTunnel/internal/service"
-
+	"github.com/typegaro/HamstersTunnel/internal/server/service"
 )
 
 // Server represents the main application server

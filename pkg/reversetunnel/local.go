@@ -1,4 +1,4 @@
-package main
+package reversetunnel
 
 import (
     "log"
@@ -6,9 +6,8 @@ import (
     "io"
     "errors"
     "strings"
-    "os"
-    "fmt"
 )
+
 
 // Check the reason for the connection closure
 func checkConnectionClosed(err error) string {
@@ -32,7 +31,7 @@ func checkConnectionClosed(err error) string {
     return "Unknown error: " + err.Error()
 }
 
-func forwardData(src, dst net.Conn) {
+func localForwardData(src, dst net.Conn) {
     defer src.Close()
     defer dst.Close()
 
@@ -57,7 +56,7 @@ func forwardData(src, dst net.Conn) {
     }
 }
 
-func startProxy(remotePort, servicePort string) {
+func StartLocalTCPTunnel(remotePort, servicePort string) {
     remoteConn, err := net.Dial("tcp", remotePort)
     if err != nil {
         log.Fatalf("Unable to connect to remote proxy on port %s: %v", remotePort, err)
@@ -74,22 +73,10 @@ func startProxy(remotePort, servicePort string) {
     log.Printf("Connected to local service: %s", servicePort)
 
     // Forward data in both directions
-    go forwardData(remoteConn, serviceConn)
-    go forwardData(serviceConn, remoteConn)
+    go localForwardData(remoteConn, serviceConn)
+    go localForwardData(serviceConn, remoteConn)
 
     // Block the main function to keep connections active
     select {}
-}
-
-func main() {
-    if len(os.Args) < 3 {
-        fmt.Println("Usage: go run main.go <remotePort> <servicePort>")
-        os.Exit(1)
-    }
-
-    remotePort := os.Args[1]
-    servicePort := os.Args[2]
-
-    startProxy(remotePort, servicePort)
 }
 

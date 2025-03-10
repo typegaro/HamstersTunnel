@@ -11,8 +11,8 @@ import (
 // Handler for creating a new service
 func (s *ServiceManager) HandlerNewService(c echo.Context) error {
 
-    save, err := strconv.ParseBool(c.QueryParam("save"))
-    if err!=nil {
+	save, err := strconv.ParseBool(c.QueryParam("save"))
+    if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid save value"})
 	}
 
@@ -21,9 +21,9 @@ func (s *ServiceManager) HandlerNewService(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request"})
 	}
 
-	publicService,err := GeneratePublicService(req)
-    if err!= nil{
-        return c.JSON(http.StatusInternalServerError,map[string]string{"error": "failed to generate service"})
+	publicService, err := GeneratePublicService(req)
+    if err != nil {
+        return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to generate service"})
     }
 
     if save {
@@ -32,9 +32,12 @@ func (s *ServiceManager) HandlerNewService(c echo.Context) error {
 	    }
     }
 
-	return c.JSON(http.StatusOK, map[string]string{
-    "service_id": publicService.Info.Id,
-    "tcp_private_port": publicService.TCP.Private,
-    "tcp_public_port": publicService.TCP.Public,
-})
+	serviceResponse := models.ServiceRes{
+		Id:   publicService.Id,
+		HTTP: publicService.HTTP.Client,
+		TCP:  publicService.TCP.Client, 
+		UDP:  publicService.UDP.Client, 
+	}
+
+	return c.JSON(http.StatusOK, serviceResponse)
 }

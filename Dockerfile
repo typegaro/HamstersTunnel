@@ -6,7 +6,7 @@ WORKDIR /app
 
 COPY . .
 
-RUN make build
+RUN make build-server
 
 FROM alpine:latest
 

@@ -1,4 +1,3 @@
-
 package memory 
 
 import (
@@ -28,11 +27,11 @@ func (fs *FileSystemMemory) Init() {
 }
 
 // Saves a service to the file system
-func (fs *FileSystemMemory) SaveService(srv *models.PublicService) error {
+func (fs *FileSystemMemory) SaveService(srv *models.Service) error {
 	fs.mutex.Lock()
 	defer fs.mutex.Unlock()
 
-	serviceFilePath := filepath.Join(fs.storagePath, srv.Info.Id+".json")
+	serviceFilePath := filepath.Join(fs.storagePath, srv.Id+".json")
 
 	if _, err := os.Stat(fs.storagePath); os.IsNotExist(err) {
 		return fmt.Errorf("destination folder does not exist: %v", fs.storagePath)
@@ -54,7 +53,7 @@ func (fs *FileSystemMemory) SaveService(srv *models.PublicService) error {
 }
 
 // Retrieves a service by ID
-func (fs *FileSystemMemory) GetService(id string) (*models.PublicService, error) {
+func (fs *FileSystemMemory) GetService(id string) (*models.Service, error) {
 	serviceFilePath := filepath.Join(fs.storagePath, id+".json")
 
 	if file, err := os.ReadFile(serviceFilePath); err != nil {
@@ -63,7 +62,7 @@ func (fs *FileSystemMemory) GetService(id string) (*models.PublicService, error)
 		}
 		return nil, err
 	}else{
-        var srv models.PublicService
+        var srv models.Service
 	    if err := json.Unmarshal(file, &srv); err != nil {
 	    	return nil, err
 	    }
@@ -72,7 +71,7 @@ func (fs *FileSystemMemory) GetService(id string) (*models.PublicService, error)
 }
 
 // Retrieves all active services
-func (fs *FileSystemMemory) GetActiveServices() ([]*models.PublicService, error) {
+func (fs *FileSystemMemory) GetActiveServices() ([]*models.Service, error) {
 	fs.mutex.Lock()
 	defer fs.mutex.Unlock()
 
@@ -81,7 +80,7 @@ func (fs *FileSystemMemory) GetActiveServices() ([]*models.PublicService, error)
 		return nil, err
 	}
 
-	var services []*models.PublicService
+	var services []*models.Service
 
 	for _, file := range files {
 		if file.IsDir() {
@@ -98,7 +97,7 @@ func (fs *FileSystemMemory) GetActiveServices() ([]*models.PublicService, error)
 			return nil, err
 		}
 
-		var srv models.PublicService
+		var srv models.Service
 		if err := json.Unmarshal(data, &srv); err != nil {
 			return nil, err
 		}
