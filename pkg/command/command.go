@@ -21,9 +21,11 @@ type SetStatusCommand struct {
 type NewServiceCommand struct {
 	Command       string `json:"command"`
 	ServiceName   string `json:"service_name"`
-	LocalPort     string `json:"local_port"`
+	TCP           string `json:"tcp_port"`//local service port 
+	UDP           string `json:"udp_port"`//local service port
+	HTTP          string `json:"http_port"`//local service port
 	RemoteIP      string `json:"remote_ip"`
-    Save          string `json:"save"`
+    Save          bool `json:"save"`
     PortBlackList []string `json:"port_black_list"`
     PortWitheList []string `json:"port_withe_list"`
 }

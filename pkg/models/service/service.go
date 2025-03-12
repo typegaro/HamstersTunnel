@@ -10,6 +10,13 @@ type Service struct {
 	UDP   *PortPair `json:"udp_port_pair"`
 }
 
+//In Local case:
+//- Proxy is the port on the remote
+//- Client is the local service port
+//In Remote case:
+//- Proxy is the port listening for the final user 
+//- Client is the port for the client 
+//-  Remote.Client == Local.Proxy
 type PortPair struct {
     Proxy string `json:"proxy"`
     Client string `json:"client"` 
@@ -30,14 +37,4 @@ type ServiceRes struct{
     HTTP  string `json:"http_port"`
 	TCP   string `json:"tcp_port"`
 	UDP   string `json:"udp_port"`
-}
-
-type CachedService struct {
-    Ip   string `json:"ip"`
-    Name string `json:"name"`
-    Id   string `json:"id"`
-    HTTP string `json:"http_proxy_port"`
-    TCP  string `json:"tcp_proxy_port"`
-    UDP  string `json:"udp_proxy_port"`
-    Active bool  `json:"active"`
 }

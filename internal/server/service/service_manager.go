@@ -9,7 +9,7 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
-	"github.com/typegaro/HamstersTunnel/internal/server/memory"
+	"github.com/typegaro/HamstersTunnel/internal/shared/memory"
 	"github.com/typegaro/HamstersTunnel/pkg/interfaces"
 	"github.com/typegaro/HamstersTunnel/pkg/models/service"
 	"github.com/typegaro/HamstersTunnel/pkg/reversetunnel"
@@ -19,7 +19,7 @@ import (
 type ServiceManager struct {
 	usedPorts map[string]string
 	services  map[string]*models.Service
-	memory    interfaces.ServerMemory
+	memory    interfaces.Memory
 	mutex     sync.Mutex
 }
 
@@ -123,7 +123,6 @@ func GeneratePublicService(req models.NewServiceReq) (models.Service, error) {
 			Client: clientPort,
 		}
 	}
-
 	return ps, nil
 }
 

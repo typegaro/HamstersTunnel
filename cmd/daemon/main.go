@@ -5,7 +5,7 @@ import (
 )
 
 func main() {
-	daemon := &daemon.Daemon{}
+	daemon := daemon.NewDaemon()
 	daemon.Init()
 }
 
