@@ -11,7 +11,7 @@ import (
 	"os"
 	"runtime"
 
-	"github.com/typegaro/HamstersTunnel/internal/shared/memory"
+	"github.com/typegaro/HamstersTunnel/internal/daemon/client_memory"
 	"github.com/typegaro/HamstersTunnel/pkg/command"
 	"github.com/typegaro/HamstersTunnel/pkg/interfaces"
 	"github.com/typegaro/HamstersTunnel/pkg/models/service"
@@ -21,14 +21,31 @@ import (
 type Daemon struct {
 	status   string
 	listener net.Listener
-	memory interfaces.Memory
+	memory   interfaces.ClientMemory
+	services map[string]*models.ClientService
 }
 
-func NewDaemon() *Daemon{
-    return &Daemon{
-        status: "Runnig",
-        memory: &memory.FileSystemMemory{},
-    }
+func NewDaemon() *Daemon {
+	return &Daemon{
+		status:   "Running",
+		memory:   &client_memory.FileSystemMemory{},
+		services: make(map[string]*models.ClientService),
+	}
+}
+
+func (d *Daemon) Init() {
+	d.memory.Init()
+	d.InitSocket()
+	d.WakeUpServices()
+	for {
+		conn, err := d.listener.Accept()
+		defer d.listener.Close()
+		if err != nil {
+			log.Println("Errore nella connessione:", err)
+			continue
+		}
+		go d.handleConnection(conn)
+	}
 }
 
 func getSocketPath() string {
@@ -38,8 +55,7 @@ func getSocketPath() string {
 	return "/tmp/mydaemon.sock" // Unix socket on Linux/macOS
 }
 
-func (d *Daemon) Init() {
-	d.memory.Init()
+func (d *Daemon) InitSocket() {
 	socketPath := getSocketPath()
 
 	if runtime.GOOS != "windows" {
@@ -56,18 +72,31 @@ func (d *Daemon) Init() {
 	if err != nil {
 		log.Fatal("Errore nell'apertura del socket:", err)
 	}
-	defer d.listener.Close()
 
 	fmt.Println("Daemon in ascolto su", socketPath)
+}
 
-	for {
-		conn, err := d.listener.Accept()
-		if err != nil {
-			log.Println("Errore nella connessione:", err)
-			continue
-		}
-		go d.handleConnection(conn)
+func (d *Daemon) WakeUpServices() error {
+	srvs, err := d.memory.GetActiveServices()
+	if err != nil {
+		return err
 	}
+
+	for _, srv := range srvs {
+		if srv.TCP != nil {
+			go reversetunnel.StartLocalTCPTunnel(srv.TCP.Remote, srv.TCP.Local)
+		}
+		d.addService(srv)
+	}
+	return nil
+}
+
+func (d *Daemon) addService(cs *models.ClientService) error {
+	if _, exists := d.services[cs.Id]; exists {
+		return fmt.Errorf("service with id %s already exists", cs.Id)
+	}
+	d.services[cs.Id] = cs
+	return nil
 }
 
 func (d *Daemon) handleConnection(conn net.Conn) {
@@ -95,13 +124,6 @@ func (d *Daemon) handleConnection(conn net.Conn) {
 			return
 		}
 		d.handleStatus(conn)
-	case "set-status":
-		var setStatusCommand command.SetStatusCommand
-		if err := json.Unmarshal(buffer[:n], &setStatusCommand); err != nil {
-			conn.Write([]byte("Errore nel parsing del comando 'set-status'\n"))
-			return
-		}
-		d.handleSetStatus(conn, setStatusCommand)
 	case "new":
 		var newServiceCommand command.NewServiceCommand
 		if err := json.Unmarshal(buffer[:n], &newServiceCommand); err != nil {
@@ -119,22 +141,17 @@ func (d *Daemon) handleStatus(conn net.Conn) {
 	json.NewEncoder(conn).Encode(response)
 }
 
-func (d *Daemon) handleSetStatus(conn net.Conn, command command.SetStatusCommand) {
-	d.status = command.Value
-	conn.Write([]byte("Status updated\n"))
-}
-
 func (d *Daemon) handleNewService(conn net.Conn, command command.NewServiceCommand) {
 	url := fmt.Sprintf("http://%s/service?save=%v", command.RemoteIP, command.Save)
-	
+
 	payload := models.NewServiceReq{
 		Name:          command.ServiceName,
-		TCP:           true,  
-		UDP:           true,  
-		HTTP:          true,  
-		PortBlackList: []string{},  
-		PortWitheList: []string{},  
-		Options:       []string{}, 
+		TCP:           true,
+		UDP:           true,
+		HTTP:          true,
+		PortBlackList: []string{},
+		PortWitheList: []string{},
+		Options:       []string{},
 	}
 
 	payloadJSON, err := json.Marshal(payload)
@@ -162,27 +179,46 @@ func (d *Daemon) handleNewService(conn net.Conn, command command.NewServiceComma
 		return
 	}
 
-	s := &models.Service{
-		Id:        serviceRes.Id, 
-        Name:      command.ServiceName+":"+command.RemoteIP, 
-		TCP:       &models.PortPair{Proxy: serviceRes.TCP,Client: command.TCP}, 
-		UDP:       &models.PortPair{Proxy: serviceRes.UDP,Client: command.UDP}, 
-        HTTP:      &models.PortPair{Proxy: serviceRes.HTTP,Client: command.HTTP}, 
-		Active:    true,
+	s := &models.ClientService{
+		Id:     serviceRes.Id,
+		Name:   command.ServiceName,
+		Ip:     command.RemoteIP,
+		Active: true,
+	}
+	if serviceRes.TCP != "" {
+		s.TCP = &models.ClientPortPair{
+			Remote:       serviceRes.TCP,
+			Local:        command.TCP,
+			Iniitialized: true,
+		}
+	}
+	if serviceRes.UDP != "" {
+		s.UDP = &models.ClientPortPair{
+			Remote:       serviceRes.UDP,
+			Local:        command.UDP,
+			Iniitialized: true,
+		}
+	}
+	if serviceRes.HTTP != "" {
+		s.HTTP = &models.ClientPortPair{
+			Remote:       serviceRes.HTTP,
+			Local:        command.HTTP,
+			Iniitialized: true,
+		}
 	}
 
-    if command.Save {
-        if err := d.memory.SaveService(s); err != nil {
-	    	conn.Write([]byte("Error saving new service: " + err.Error() + "\n"))
-	    	return
-	    }
-    }
-    startTunnelService(s) 
+	if command.Save {
+		if err := d.memory.SaveService(s); err != nil {
+			conn.Write([]byte("Error saving new service: " + err.Error() + "\n"))
+			return
+		}
+	}
+	startTunnelService(s)
 	conn.Write([]byte("New service created and saved successfully\n"))
 }
 
-func startTunnelService(s *models.Service){
-    if s.TCP.Client != ""{
-        reversetunnel.StartLocalTCPTunnel(s.TCP.Proxy,s.TCP.Proxy) 
-    }
+func startTunnelService(s *models.ClientService) {
+	if s.TCP.Iniitialized {
+		reversetunnel.StartLocalTCPTunnel(s.TCP.Remote, s.TCP.Local)
+	}
 }

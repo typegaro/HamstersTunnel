@@ -10,14 +10,7 @@ import (
 	"github.com/typegaro/HamstersTunnel/pkg/command"
 )
 
-type CLI struct{
-    TCP string
-    UDP string
-    HTTP string
-    Ip string
-    Name string
-    Save bool
-}
+type CLI struct{}
 
 func (cli *CLI) getSocketPath() string {
 	if runtime.GOOS == "windows" {
@@ -29,9 +22,12 @@ func (cli *CLI) getSocketPath() string {
 func (cli *CLI) sendCommand(cmd interface{}) {
 	socketPath := cli.getSocketPath()
 
-	conn, err := net.Dial("unix", socketPath)
+	var conn net.Conn
+	var err error
 	if runtime.GOOS == "windows" {
 		conn, err = net.Dial("npipe", socketPath)
+	} else {
+		conn, err = net.Dial("unix", socketPath)
 	}
 
 	if err != nil {
@@ -46,40 +42,33 @@ func (cli *CLI) sendCommand(cmd interface{}) {
 	fmt.Println(string(buffer[:n]))
 }
 
-func (cli *CLI) printHelp() {
-	fmt.Println("Usage: cli <command> [args]")
-    fmt.Println("Commands:")
-    fmt.Println("  new         : Create a new service with the provided details.")
-}
-
-func (cli *CLI) status() {
-	cmd := command.StatusCommand{Command: "status"}
-	cli.sendCommand(cmd)
-}
-
-func (cli *CLI) setStatus(value string) {
-	cmd := command.SetStatusCommand{
-		Command: "set-status",
-		Value:   value,
-	}
-	cli.sendCommand(cmd)
-}
-
-func (cli *CLI) newService(ip,name,tcp, udp, http string,save bool) {
+func (cli *CLI) NewService(ip, name, tcp, udp, http string, save bool) {
 	cmd := command.NewServiceCommand{
 		Command:     "new",
 		ServiceName: name,
-        TCP:         tcp,
+		TCP:         tcp,
 		UDP:         udp,
 		HTTP:        http,
 		RemoteIP:    ip,
-        Save:        save,
+		Save:        save,
 	}
 	cli.sendCommand(cmd)
 }
 
-func (cli *CLI) Execute() {
-    cli.newService(cli.Ip, cli.Name, cli.TCP, cli.UDP, cli.HTTP, cli.Save)
+// TODO: Implement this on deamon side
+func (cli *CLI) ListService(inactive bool) {
+	cmd := command.ListCommand{Command: "status", Inactive: inactive}
+	cli.sendCommand(cmd)
 }
 
+// TODO: Implement this on deamon side
+func (cli *CLI) StopService(id string, remote bool) {
+	cmd := command.ServiceCommand{Command: "stop", Id: id, Remote: remote}
+	cli.sendCommand(cmd)
+}
 
+// TODO: Implement this on deamon side
+func (cli *CLI) RemoveService(id string, remote bool) {
+	cmd := command.ServiceCommand{Command: "remove", Id: id, Remote: remote}
+	cli.sendCommand(cmd)
+}

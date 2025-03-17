@@ -6,21 +6,18 @@ import (
 	"net"
 	"strconv"
 	"time"
-	"sync"
 
 	"github.com/google/uuid"
-	"github.com/typegaro/HamstersTunnel/internal/shared/memory"
+	"github.com/typegaro/HamstersTunnel/internal/server/server_memory"
 	"github.com/typegaro/HamstersTunnel/pkg/interfaces"
 	"github.com/typegaro/HamstersTunnel/pkg/models/service"
 	"github.com/typegaro/HamstersTunnel/pkg/reversetunnel"
-
 )
 
 type ServiceManager struct {
 	usedPorts map[string]string
-	services  map[string]*models.Service
-	memory    interfaces.Memory
-	mutex     sync.Mutex
+	services  map[string]*models.ServerService
+	memory    interfaces.ServerMemory
 }
 
 func NewServiceManager() *ServiceManager {
@@ -28,8 +25,8 @@ func NewServiceManager() *ServiceManager {
 
 	return &ServiceManager{
 		usedPorts: make(map[string]string),
-		services:  make(map[string]*models.Service),
-		memory:    &memory.FileSystemMemory{},
+		services:  make(map[string]*models.ServerService),
+		memory:    &server_memory.FileSystemMemory{},
 	}
 }
 
@@ -56,9 +53,7 @@ func (sm *ServiceManager) loadService() error {
 	return nil
 }
 
-func (sm *ServiceManager) addService(ps *models.Service) error {
-	sm.mutex.Lock()
-	defer sm.mutex.Unlock()
+func (sm *ServiceManager) addService(ps *models.ServerService) error {
 
 	if _, exists := sm.services[ps.Id]; exists {
 		return fmt.Errorf("service with id %s already exists", ps.Id)
@@ -67,9 +62,7 @@ func (sm *ServiceManager) addService(ps *models.Service) error {
 	return nil
 }
 
-func (sm *ServiceManager) removeService(ps *models.Service) error {
-	sm.mutex.Lock()
-	defer sm.mutex.Unlock()
+func (sm *ServiceManager) removeService(ps *models.ServerService) error {
 
 	if _, exists := sm.services[ps.Id]; !exists {
 		return fmt.Errorf("service with id %s not found", ps.Id)
@@ -79,16 +72,12 @@ func (sm *ServiceManager) removeService(ps *models.Service) error {
 }
 
 func (sm *ServiceManager) isUsedPort(port string) (string, bool) {
-	sm.mutex.Lock()
-	defer sm.mutex.Unlock()
 
 	value, exists := sm.usedPorts[port]
 	return value, exists
 }
 
 func (sm *ServiceManager) addUsedPort(port string, id string) error {
-	sm.mutex.Lock()
-	defer sm.mutex.Unlock()
 
 	if user, exists := sm.usedPorts[port]; exists {
 		return fmt.Errorf("port %s is already used by service %s", port, user)
@@ -97,12 +86,12 @@ func (sm *ServiceManager) addUsedPort(port string, id string) error {
 	return nil
 }
 
-func GeneratePublicService(req models.NewServiceReq) (models.Service, error) {
-	ps := models.Service{
-		Id:   uuid.New().String(),
-		Name: req.Name,
-        Active: true,
-        Options: []string{},
+func GeneratePublicService(req models.NewServiceReq) (models.ServerService, error) {
+	ps := models.ServerService{
+		Id:      uuid.New().String(),
+		Name:    req.Name,
+		Active:  true,
+		Options: []string{},
 	}
 
 	if req.TCP {
@@ -118,7 +107,7 @@ func GeneratePublicService(req models.NewServiceReq) (models.Service, error) {
 
 		go reversetunnel.StartRemoteTCPTunnel(proxyPort, clientPort)
 
-		ps.TCP = &models.PortPair{
+		ps.TCP = &models.ServerPortPair{
 			Proxy:  proxyPort,
 			Client: clientPort,
 		}
@@ -159,4 +148,3 @@ func contains(list []string, port string) bool {
 	}
 	return false
 }
-
