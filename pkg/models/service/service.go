@@ -1,34 +1,51 @@
-package models 
+package models
 
-type PublicService struct {
-    Info ServiceInfo`json:"info"` 
-	HTTP  *PortPair`json:"http_port_pair"`
-	TCP   *PortPair `json:"tcp_port_pair"`
-	UDP   *PortPair `json:"udp_port_pair"`
-	Active     bool   `json:"active"`
-}
-type ServiceInfo struct {
-	Id string `json:"id"`
-    Name string `json:"name"` 
+type ServerService struct {
+	Id      string          `json:"id"`
+	Name    string          `json:"name"`
+	Active  bool            `json:"active"`
+	HTTP    *ServerPortPair `json:"http_port_pair"`
+	TCP     *ServerPortPair `json:"tcp_port_pair"`
+	UDP     *ServerPortPair `json:"udp_port_pair"`
+	Options []string        `json:"options"`
 }
 
-type PortPair struct{
-    Public string `json:"public"`
-    Private string `json:"private"`
+type ServerPortPair struct {
+	Proxy        string `json:"proxy"`
+	Client       string `json:"client"`
+	Iniitialized bool   `json:"iniitialized"`
+}
+
+type ClientService struct {
+	Id      string          `json:"id"`
+	Ip      string          `json:"ip"`
+	Name    string          `json:"name"`
+	Active  bool            `json:"active"`
+	HTTP    *ClientPortPair `json:"http_port_pair"`
+	TCP     *ClientPortPair `json:"tcp_port_pair"`
+	UDP     *ClientPortPair `json:"udp_port_pair"`
+	Options []string        `json:"options"`
+}
+
+type ClientPortPair struct {
+	Remote       string `json:"remote"`
+	Local        string `json:"local"`
+	Iniitialized bool   `json:"iniitialized"`
 }
 
 type NewServiceReq struct {
-    Name string `json:"name"` 
-    TCP bool `json:"tcp"` 
-    UDP bool `json:"udp"`
-    HTTP bool `json:"http"`
-    PortBlackList []string `json:"port_black_list"`
+	Name          string   `json:"name"`
+	TCP           bool     `json:"tcp"`
+	UDP           bool     `json:"udp"`
+	HTTP          bool     `json:"http"`
+	PortBlackList []string `json:"port_black_list"`
+	PortWitheList []string `json:"port_white_list"`
+	Options       []string `json:"options"`
 }
 
-type LocalService struct {
-    Info ServiceInfo`json:"info"` 
-	LocalHTTP  string `json:"local_http"`
-	LocalTPC   string `json:"local_tcp"` 
-	LocalUDP   string `json:"local_udp"` 
-    Options []string  `json:"options"` //TODO: Make an Option type
+type ServiceRes struct {
+	Id   string `json:"id"`
+	HTTP string `json:"http_port"`
+	TCP  string `json:"tcp_port"`
+	UDP  string `json:"udp_port"`
 }

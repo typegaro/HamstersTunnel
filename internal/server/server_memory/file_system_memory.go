@@ -1,13 +1,12 @@
-
-package memory 
+package server_memory
 
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
-    "fmt"
 
 	"github.com/typegaro/HamstersTunnel/pkg/models/service"
 )
@@ -20,7 +19,7 @@ type FileSystemMemory struct {
 // Initializes the storage directory
 func (fs *FileSystemMemory) Init() {
 	baseDir, _ := os.Getwd()
-	fs.storagePath = filepath.Join(baseDir, "data")
+	fs.storagePath = filepath.Join(baseDir, ".config/data")
 
 	if err := os.MkdirAll(fs.storagePath, os.ModePerm); err != nil {
 		panic("failed to create directory: " + err.Error())
@@ -28,11 +27,11 @@ func (fs *FileSystemMemory) Init() {
 }
 
 // Saves a service to the file system
-func (fs *FileSystemMemory) SaveService(srv *models.PublicService) error {
+func (fs *FileSystemMemory) SaveService(srv *models.ServerService) error {
 	fs.mutex.Lock()
 	defer fs.mutex.Unlock()
 
-	serviceFilePath := filepath.Join(fs.storagePath, srv.Info.Id+".json")
+	serviceFilePath := filepath.Join(fs.storagePath, srv.Id+".json")
 
 	if _, err := os.Stat(fs.storagePath); os.IsNotExist(err) {
 		return fmt.Errorf("destination folder does not exist: %v", fs.storagePath)
@@ -54,7 +53,7 @@ func (fs *FileSystemMemory) SaveService(srv *models.PublicService) error {
 }
 
 // Retrieves a service by ID
-func (fs *FileSystemMemory) GetService(id string) (*models.PublicService, error) {
+func (fs *FileSystemMemory) GetService(id string) (*models.ServerService, error) {
 	serviceFilePath := filepath.Join(fs.storagePath, id+".json")
 
 	if file, err := os.ReadFile(serviceFilePath); err != nil {
@@ -62,17 +61,17 @@ func (fs *FileSystemMemory) GetService(id string) (*models.PublicService, error)
 			return nil, errors.New("service not found")
 		}
 		return nil, err
-	}else{
-        var srv models.PublicService
-	    if err := json.Unmarshal(file, &srv); err != nil {
-	    	return nil, err
-	    }
-	    return &srv, nil
-    }
+	} else {
+		var srv models.ServerService
+		if err := json.Unmarshal(file, &srv); err != nil {
+			return nil, err
+		}
+		return &srv, nil
+	}
 }
 
 // Retrieves all active services
-func (fs *FileSystemMemory) GetActiveServices() ([]*models.PublicService, error) {
+func (fs *FileSystemMemory) GetActiveServices() ([]*models.ServerService, error) {
 	fs.mutex.Lock()
 	defer fs.mutex.Unlock()
 
@@ -81,11 +80,11 @@ func (fs *FileSystemMemory) GetActiveServices() ([]*models.PublicService, error)
 		return nil, err
 	}
 
-	var services []*models.PublicService
+	var services []*models.ServerService
 
 	for _, file := range files {
 		if file.IsDir() {
-			continue 
+			continue
 		}
 
 		if filepath.Ext(file.Name()) != ".json" {
@@ -98,7 +97,7 @@ func (fs *FileSystemMemory) GetActiveServices() ([]*models.PublicService, error)
 			return nil, err
 		}
 
-		var srv models.PublicService
+		var srv models.ServerService
 		if err := json.Unmarshal(data, &srv); err != nil {
 			return nil, err
 		}
@@ -108,7 +107,7 @@ func (fs *FileSystemMemory) GetActiveServices() ([]*models.PublicService, error)
 
 	return services, nil
 }
-    
+
 // Deletes a service by ID
 func (fs *FileSystemMemory) DeleteService(id string) error {
 	fs.mutex.Lock()
@@ -130,4 +129,3 @@ func (fs *FileSystemMemory) IsService(id string) bool {
 	_, err := os.Stat(serviceFilePath)
 	return !os.IsNotExist(err)
 }
-

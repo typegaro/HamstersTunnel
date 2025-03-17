@@ -8,9 +8,11 @@ install:
 server: build-server
 	./cmd/server/bin/server
 
-client: build-client
-	./cmd/client/bin/client
-
+cli: build-cli
+	./cmd/cli/bin/cli
+	
+daemon: build-daemon
+	./cmd/daemon/bin/daemon
 # Run all tests
 test:
 	$(GO) test ./... -v
@@ -18,13 +20,13 @@ test:
 build-server:
 	$(GO) build -o ./cmd/server/bin/server ./cmd/server/main.go
 
-build-client:
-	$(GO) build -o ./cmd/client/bin/client ./cmd/client/main.go 
+build-daemon:
+	$(GO) build -o ./cmd/daemon/bin/daemon ./cmd/daemon/main.go 
 
+build-cli:
+	$(GO) build -o ./cmd/cli/bin/cli ./cmd/cli/main.go 
 # Build the server executable
-build: install
-	$(GO) build -o ./cmd/server/bin/server ./cmd/server/main.go
-	$(GO) build -o ./cmd/client/bin/client ./cmd/client/main.go 
+build: install build-daemon build-cli build-server
 
 # Clean the build (remove the compiled executable)
 clean:

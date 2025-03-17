@@ -1,4 +1,4 @@
-package memory 
+package server_memory
 
 import (
 	"github.com/typegaro/HamstersTunnel/pkg/models/service"
@@ -75,7 +75,11 @@ func TestGetService(t *testing.T) {
 
 	// Verify that the retrieved service is correct
 	if retrievedService.Info.Id != service.Info.Id {
-		t.Errorf("Retrieved service ID does not match. Expected %s, got %s", service.Info.Id, retrievedService.Info.Id)
+		t.Errorf(
+			"Retrieved service ID does not match. Expected %s, got %s",
+			service.Info.Id,
+			retrievedService.Info.Id,
+		)
 	}
 }
 
@@ -197,4 +201,3 @@ func TestIsService(t *testing.T) {
 		t.Fatalf("Service %s should not exist after deletion", service.Info.Id)
 	}
 }
-

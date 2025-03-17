@@ -10,10 +10,8 @@ func main() {
     s := server.NewServer()
     s.Init()
 
-	// Configure routes
 	server.SetupRoutes(e, s)
     e.Use(server.LoggerMiddleware)
 
-	// Start the server
 	e.Logger.Fatal(e.Start(":8080"))
 }
