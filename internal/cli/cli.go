@@ -55,9 +55,8 @@ func (cli *CLI) NewService(ip, name, tcp, udp, http string, save bool) {
 	cli.sendCommand(cmd)
 }
 
-// TODO: Implement this on deamon side
 func (cli *CLI) ListService(inactive bool) {
-	cmd := command.ListCommand{Command: "status", Inactive: inactive}
+	cmd := command.ListCommand{Command: "ls", Inactive: inactive}
 	cli.sendCommand(cmd)
 }
 
@@ -69,6 +68,6 @@ func (cli *CLI) StopService(id string, remote bool) {
 
 // TODO: Implement this on deamon side
 func (cli *CLI) RemoveService(id string, remote bool) {
-	cmd := command.ServiceCommand{Command: "remove", Id: id, Remote: remote}
+	cmd := command.ServiceCommand{Command: "rm", Id: id, Remote: remote}
 	cli.sendCommand(cmd)
 }

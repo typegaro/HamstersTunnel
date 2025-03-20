@@ -11,9 +11,8 @@ type ServerService struct {
 }
 
 type ServerPortPair struct {
-	Proxy        string `json:"proxy"`
-	Client       string `json:"client"`
-	Iniitialized bool   `json:"iniitialized"`
+	Proxy  string `json:"proxy"`
+	Client string `json:"client"`
 }
 
 type ClientService struct {
@@ -28,9 +27,8 @@ type ClientService struct {
 }
 
 type ClientPortPair struct {
-	Remote       string `json:"remote"`
-	Local        string `json:"local"`
-	Iniitialized bool   `json:"iniitialized"`
+	Remote string `json:"remote"`
+	Local  string `json:"local"`
 }
 
 type NewServiceReq struct {
@@ -43,7 +41,7 @@ type NewServiceReq struct {
 	Options       []string `json:"options"`
 }
 
-type ServiceRes struct {
+type NewServiceRes struct {
 	Id   string `json:"id"`
 	HTTP string `json:"http_port"`
 	TCP  string `json:"tcp_port"`

@@ -27,7 +27,7 @@ var newCmd = &cobra.Command{
 		http, _ := cmd.Flags().GetString("http")
 		save, _ := cmd.Flags().GetBool("save")
 
-		if tcp == "" || udp == "" || http == "" {
+		if tcp == "" && udp == "" && http == "" {
 			fmt.Println(
 				"Error: At least one of the required parameters (tcp, udp, http) must be provided.",
 			)
@@ -96,7 +96,7 @@ func main() {
 
 	//ls command
 	rootCmd.AddCommand(lsCmd)
-	lsCmd.Flags().Bool("inactive", false, "show also inactive services")
+	lsCmd.Flags().Bool("la", false, "show also inactive services")
 
 	//stop command
 	rootCmd.AddCommand(stopCmd)

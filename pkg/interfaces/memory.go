@@ -5,47 +5,33 @@ import (
 )
 
 type ServerMemory interface {
-	// Init method
 	Init()
 
-	// SaveService stores a PublicService instance in memory.
-	// Returns an error if the service cannot be saved.
-	SaveService(srv *models.ServerService) error
+	AddService(srv *models.ServerService) error
 
-	// GetService retrieves a PublicService instance by its ID.
-	// Returns the service if found, but consider handling cases where the ID does not exist.
-	GetService(id string) (*models.ServerService, error)
+	RemoveService(id string) error
 
-	// GetActiveService search and returns the active service
-	GetActiveServices() ([]*models.ServerService, error)
+	EditService(srv *models.ServerService) error
 
-	// DeleteService removes a PublicService instance by its ID.
-	// Returns an error if the service cannot be deleted.
-	DeleteService(id string) error
+	GetServices() []*models.ServerService
 
-	// IsService checks whether a service with the given ID exists.
+	GetService(id string) *models.ServerService
+
 	IsService(id string) bool
 }
 
 type ClientMemory interface {
-	// Init method
 	Init()
 
-	// SaveService stores a PublicService instance in memory.
-	// Returns an error if the service cannot be saved.
-	SaveService(srv *models.ClientService) error
+	AddService(srv *models.ClientService) error
 
-	// GetService retrieves a PublicService instance by its ID.
-	// Returns the service if found, but consider handling cases where the ID does not exist.
-	GetService(id string) (*models.ClientService, error)
+	RemoveService(id string) error
 
-	// GetActiveService search and returns the active service
-	GetActiveServices() ([]*models.ClientService, error)
+	EditService(srv *models.ClientService) error
 
-	// DeleteService removes a PublicService instance by its ID.
-	// Returns an error if the service cannot be deleted.
-	DeleteService(id string) error
+	GetServices() []*models.ClientService
 
-	// IsService checks whether a service with the given ID exists.
+	GetService(id string) *models.ClientService
+
 	IsService(id string) bool
 }

@@ -16,20 +16,19 @@ import (
 	"github.com/typegaro/HamstersTunnel/pkg/interfaces"
 	"github.com/typegaro/HamstersTunnel/pkg/models/service"
 	"github.com/typegaro/HamstersTunnel/pkg/reversetunnel"
+	"github.com/typegaro/HamstersTunnel/pkg/utility"
 )
 
 type Daemon struct {
 	status   string
 	listener net.Listener
 	memory   interfaces.ClientMemory
-	services map[string]*models.ClientService
 }
 
 func NewDaemon() *Daemon {
 	return &Daemon{
-		status:   "Running",
-		memory:   &client_memory.FileSystemMemory{},
-		services: make(map[string]*models.ClientService),
+		status: "Running",
+		memory: &client_memory.FileSystemMemory{},
 	}
 }
 
@@ -41,7 +40,7 @@ func (d *Daemon) Init() {
 		conn, err := d.listener.Accept()
 		defer d.listener.Close()
 		if err != nil {
-			log.Println("Errore nella connessione:", err)
+			log.Println("Connection error:", err)
 			continue
 		}
 		go d.handleConnection(conn)
@@ -70,32 +69,18 @@ func (d *Daemon) InitSocket() {
 	}
 
 	if err != nil {
-		log.Fatal("Errore nell'apertura del socket:", err)
+		log.Fatal("Error opening socket:", err)
 	}
 
-	fmt.Println("Daemon in ascolto su", socketPath)
+	fmt.Println("Daemon listening on", socketPath)
 }
 
 func (d *Daemon) WakeUpServices() error {
-	srvs, err := d.memory.GetActiveServices()
-	if err != nil {
-		return err
-	}
-
-	for _, srv := range srvs {
+	for _, srv := range d.memory.GetServices() {
 		if srv.TCP != nil {
 			go reversetunnel.StartLocalTCPTunnel(srv.TCP.Remote, srv.TCP.Local)
 		}
-		d.addService(srv)
 	}
-	return nil
-}
-
-func (d *Daemon) addService(cs *models.ClientService) error {
-	if _, exists := d.services[cs.Id]; exists {
-		return fmt.Errorf("service with id %s already exists", cs.Id)
-	}
-	d.services[cs.Id] = cs
 	return nil
 }
 
@@ -105,29 +90,50 @@ func (d *Daemon) handleConnection(conn net.Conn) {
 	buffer := make([]byte, 1024)
 	n, err := conn.Read(buffer)
 	if err != nil {
-		fmt.Println("Errore nella lettura:", err)
+		fmt.Println("Read error:", err)
 		return
 	}
 
 	var request command.Command
 	err = json.Unmarshal(buffer[:n], &request)
 	if err != nil {
-		fmt.Println("Errore nel parsing JSON:", err)
+		fmt.Println("JSON parsing error:", err)
 		return
 	}
 
 	switch request.Command {
-	case "status":
-		var statusCommand command.StatusCommand
-		if err := json.Unmarshal(buffer[:n], &statusCommand); err != nil {
-			conn.Write([]byte("Errore nel parsing del comando 'status'\n"))
+	case "ls":
+		var listCommand command.ListCommand
+		if err := json.Unmarshal(buffer[:n], &listCommand); err != nil {
+			conn.Write([]byte("Error parsing the 'ls' command\n"))
 			return
 		}
-		d.handleStatus(conn)
+		d.handleList(conn, listCommand)
+	case "stop":
+		var stopCommand command.ServiceCommand
+		if err := json.Unmarshal(buffer[:n], &stopCommand); err != nil {
+			conn.Write([]byte("Error parsing the 'stop' command\n"))
+			return
+		}
+		d.handleStop(conn, stopCommand)
+	case "rm":
+		var removeCommand command.ServiceCommand
+		if err := json.Unmarshal(buffer[:n], &removeCommand); err != nil {
+			conn.Write([]byte("Error parsing the 'stop' command\n"))
+			return
+		}
+		d.handleRemove(conn, removeCommand)
+	case "start":
+		var startCommand command.ServiceCommand
+		if err := json.Unmarshal(buffer[:n], &startCommand); err != nil {
+			conn.Write([]byte("Error parsing the 'start' command\n"))
+			return
+		}
+		d.handleStart(conn, startCommand)
 	case "new":
 		var newServiceCommand command.NewServiceCommand
 		if err := json.Unmarshal(buffer[:n], &newServiceCommand); err != nil {
-			conn.Write([]byte("Errore nel parsing del comando 'new'\n"))
+			conn.Write([]byte("Error parsing the 'new' command\n"))
 			return
 		}
 		d.handleNewService(conn, newServiceCommand)
@@ -136,9 +142,104 @@ func (d *Daemon) handleConnection(conn net.Conn) {
 	}
 }
 
-func (d *Daemon) handleStatus(conn net.Conn) {
-	response := map[string]string{"status": d.status}
-	json.NewEncoder(conn).Encode(response)
+func sendHTTPRequest(method, url string, body io.Reader) (*http.Response, error) {
+	req, err := http.NewRequest(method, url, body)
+	if err != nil {
+		return nil, fmt.Errorf("error creating request: %v", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("error sending request: %v", err)
+	}
+	return resp, nil
+}
+
+func (d *Daemon) handleStart(conn net.Conn, command command.ServiceCommand) {
+	url := fmt.Sprintf(
+		"http://%s/service/%s/start",
+		d.memory.GetService(command.Id).Ip,
+		command.Id,
+	)
+
+	resp, err := sendHTTPRequest("POST", url, nil)
+	if err != nil {
+		conn.Write([]byte("Error: " + err.Error() + "\n"))
+		return
+	}
+	defer resp.Body.Close()
+	srv := d.memory.GetService(command.Id)
+	srv.Active = true
+	if err := d.memory.EditService(srv); err != nil {
+		conn.Write([]byte("Error removing service: " + err.Error() + "\n"))
+		return
+	}
+
+	conn.Write([]byte("Service " + command.Id + " removed \n"))
+}
+
+func (d *Daemon) handleRemove(conn net.Conn, command command.ServiceCommand) {
+	url := fmt.Sprintf(
+		"http://%s/service/%s",
+		d.memory.GetService(command.Id).Ip,
+		command.Id,
+	)
+
+	resp, err := sendHTTPRequest("DELETE", url, nil)
+	if err != nil {
+		conn.Write([]byte("Error: " + err.Error() + "\n"))
+		return
+	}
+	defer resp.Body.Close()
+
+	if err := d.memory.RemoveService(command.Id); err != nil {
+		conn.Write([]byte("Error removing service: " + err.Error() + "\n"))
+		return
+	}
+
+	conn.Write([]byte("Service " + command.Id + " removed \n"))
+}
+
+func (d *Daemon) handleStop(conn net.Conn, command command.ServiceCommand) {
+	//Stop remote service
+	url := fmt.Sprintf("http://%s/service/%s/stop", command.Remote, command.Id)
+	resp, err := sendHTTPRequest("PUT", url, nil)
+	if err != nil {
+		conn.Write([]byte("Error: " + err.Error() + "\n"))
+		return
+	}
+	//Stop local service
+	srv := d.memory.GetService(command.Id)
+	srv.Active = false
+	defer resp.Body.Close()
+	if err := d.memory.EditService(srv); err != nil {
+		conn.Write([]byte("Error stoping Service: " + err.Error() + "\n"))
+	}
+	conn.Write([]byte("Service " + command.Id + " Stopped\n"))
+}
+
+func (d *Daemon) handleList(conn net.Conn, command command.ListCommand) {
+	var output bytes.Buffer
+	output.WriteString("ID\tNAME\tIP\tSTATUS\tTCP\tUDP\tHTTP\n\n")
+
+	for _, s := range d.memory.GetServices() {
+		if s.Active || command.Inactive {
+			output.WriteString(fmt.Sprintf("%s\t%s\t%s\t%t\t%s\t%s\t%s\n",
+				s.Id,
+				s.Name,
+				s.Ip,
+				s.Active,
+				utitlity.Ternary(s.TCP != nil, s.TCP.Local+"->"+s.TCP.Remote, "N/A"),
+				utitlity.Ternary(s.UDP != nil, s.UDP.Local+"->"+s.HTTP.Remote, "N/A"),
+				utitlity.Ternary(s.HTTP != nil, s.HTTP.Local+"->"+s.HTTP.Remote, "N/A"),
+			))
+		}
+	}
+
+	conn.Write(output.Bytes())
 }
 
 func (d *Daemon) handleNewService(conn net.Conn, command command.NewServiceCommand) {
@@ -173,52 +274,54 @@ func (d *Daemon) handleNewService(conn net.Conn, command command.NewServiceComma
 		return
 	}
 
-	var serviceRes models.ServiceRes
+	var serviceRes models.NewServiceRes
 	if err := json.Unmarshal(body, &serviceRes); err != nil {
 		conn.Write([]byte("Error decoding response body: " + err.Error() + "\n"))
 		return
 	}
 
 	s := &models.ClientService{
-		Id:     serviceRes.Id,
-		Name:   command.ServiceName,
-		Ip:     command.RemoteIP,
+		Id:   serviceRes.Id,
+		Name: command.ServiceName,
+		Ip:   command.RemoteIP,
+		TCP: utitlity.Ternary(
+			serviceRes.TCP != "",
+			&models.ClientPortPair{Remote: serviceRes.TCP, Local: command.TCP},
+			nil,
+		),
+		UDP: utitlity.Ternary(
+			serviceRes.UDP != "",
+			&models.ClientPortPair{Remote: serviceRes.UDP, Local: command.UDP},
+			nil,
+		),
+		HTTP: utitlity.Ternary(
+			serviceRes.HTTP != "",
+			&models.ClientPortPair{Remote: serviceRes.HTTP, Local: command.HTTP},
+			nil,
+		),
 		Active: true,
-	}
-	if serviceRes.TCP != "" {
-		s.TCP = &models.ClientPortPair{
-			Remote:       serviceRes.TCP,
-			Local:        command.TCP,
-			Iniitialized: true,
-		}
-	}
-	if serviceRes.UDP != "" {
-		s.UDP = &models.ClientPortPair{
-			Remote:       serviceRes.UDP,
-			Local:        command.UDP,
-			Iniitialized: true,
-		}
-	}
-	if serviceRes.HTTP != "" {
-		s.HTTP = &models.ClientPortPair{
-			Remote:       serviceRes.HTTP,
-			Local:        command.HTTP,
-			Iniitialized: true,
-		}
 	}
 
 	if command.Save {
-		if err := d.memory.SaveService(s); err != nil {
+		if err := d.memory.AddService(s); err != nil {
 			conn.Write([]byte("Error saving new service: " + err.Error() + "\n"))
 			return
 		}
 	}
-	startTunnelService(s)
+	go startTunnelService(s)
+
+	response, err := json.MarshalIndent(s, "", "  ")
+	if err != nil {
+		conn.Write([]byte("Error encoding response: " + err.Error() + "\n"))
+		return
+	}
 	conn.Write([]byte("New service created and saved successfully\n"))
+	conn.Write(response)
 }
 
 func startTunnelService(s *models.ClientService) {
-	if s.TCP.Iniitialized {
+	if s.TCP != nil {
 		reversetunnel.StartLocalTCPTunnel(s.TCP.Remote, s.TCP.Local)
 	}
+	//TODO: Implement UDP and HTTP
 }

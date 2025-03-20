@@ -6,14 +6,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sync"
 
 	"github.com/typegaro/HamstersTunnel/pkg/models/service"
+	"github.com/typegaro/HamstersTunnel/pkg/utility"
 )
 
 type FileSystemMemory struct {
 	storagePath string
-	mutex       sync.Mutex
+	services    map[string]*models.ClientService
 }
 
 // Initializes the storage directory
@@ -24,57 +24,55 @@ func (fs *FileSystemMemory) Init() {
 	if err := os.MkdirAll(fs.storagePath, os.ModePerm); err != nil {
 		panic("failed to create directory: " + err.Error())
 	}
-}
 
-// Saves a service to the file system
-func (fs *FileSystemMemory) SaveService(srv *models.ClientService) error {
-	fs.mutex.Lock()
-	defer fs.mutex.Unlock()
-
-	serviceFilePath := filepath.Join(fs.storagePath, srv.Id+".json")
-
-	if _, err := os.Stat(fs.storagePath); os.IsNotExist(err) {
-		return fmt.Errorf("destination folder does not exist: %v", fs.storagePath)
-	}
-
-	if data, err := json.MarshalIndent(srv, "", "  "); err != nil {
-		return err
-	} else {
-		if err := os.WriteFile(serviceFilePath, data, 0644); err != nil {
-			return fmt.Errorf("error saving service: %w", err)
+	fs.services = make(map[string]*models.ClientService)
+	if srvs, err := fs.getServicesFromFile(); err != nil {
+		for _, srv := range srvs {
+			fs.services[srv.Id] = srv
 		}
 	}
+}
 
-	if _, err := os.Stat(serviceFilePath); os.IsNotExist(err) {
-		return fmt.Errorf("file %s was not created", serviceFilePath)
+func (fd *FileSystemMemory) AddService(srv *models.ClientService) error {
+	if !fd.IsService(srv.Id) {
+		fd.services[srv.Id] = srv
+		fd.saveServiceOnFile(srv)
+	} else {
+		return fmt.Errorf("Error: %s already exist", srv.Id)
 	}
-
 	return nil
 }
 
-// Retrieves a service by ID
-func (fs *FileSystemMemory) GetService(id string) (*models.ClientService, error) {
-	serviceFilePath := filepath.Join(fs.storagePath, id+".json")
-
-	if file, err := os.ReadFile(serviceFilePath); err != nil {
-		if os.IsNotExist(err) {
-			return nil, errors.New("service not found")
-		}
-		return nil, err
+func (fd *FileSystemMemory) RemoveService(id string) error {
+	if !fd.IsService(id) {
+		fd.services[id] = nil
+		fd.deleteFile(id)
 	} else {
-		var srv models.ClientService
-		if err := json.Unmarshal(file, &srv); err != nil {
-			return nil, err
-		}
-		return &srv, nil
+		return fmt.Errorf("Error: %s don't exist", id)
 	}
+	return nil
+}
+
+func (fd *FileSystemMemory) EditService(srv *models.ClientService) error {
+	if fd.IsService(srv.Id) {
+		fd.services[srv.Id] = srv
+		if err := fd.saveServiceOnFile(srv); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (fd *FileSystemMemory) GetServices() []*models.ClientService {
+	return utitlity.MapGetValues(fd.services)
+}
+
+func (fd *FileSystemMemory) GetService(id string) *models.ClientService {
+	return fd.services[id]
 }
 
 // Retrieves all active services
-func (fs *FileSystemMemory) GetActiveServices() ([]*models.ClientService, error) {
-	fs.mutex.Lock()
-	defer fs.mutex.Unlock()
-
+func (fs *FileSystemMemory) getActiveServicesFromFile() ([]*models.ClientService, error) {
 	files, err := os.ReadDir(fs.storagePath)
 	if err != nil {
 		return nil, err
@@ -101,17 +99,88 @@ func (fs *FileSystemMemory) GetActiveServices() ([]*models.ClientService, error)
 		if err := json.Unmarshal(data, &srv); err != nil {
 			return nil, err
 		}
-
-		services = append(services, &srv)
+		if srv.Active {
+			services = append(services, &srv)
+		}
 	}
 
 	return services, nil
 }
 
+func (fs *FileSystemMemory) getServicesFromFile() ([]*models.ClientService, error) {
+	files, err := os.ReadDir(fs.storagePath)
+	if err != nil {
+		return nil, err
+	}
+
+	var services []*models.ClientService
+
+	for _, file := range files {
+		if file.IsDir() {
+			continue
+		}
+
+		if filepath.Ext(file.Name()) != ".json" {
+			continue
+		}
+
+		serviceFilePath := filepath.Join(fs.storagePath, file.Name())
+		data, err := os.ReadFile(serviceFilePath)
+		if err != nil {
+			return nil, err
+		}
+
+		var srv models.ClientService
+		if err := json.Unmarshal(data, &srv); err != nil {
+			return nil, err
+		}
+		services = append(services, &srv)
+	}
+	return services, nil
+}
+
+func (fs *FileSystemMemory) saveServiceOnFile(srv *models.ClientService) error {
+	serviceFilePath := filepath.Join(fs.storagePath, srv.Id+".json")
+
+	if _, err := os.Stat(fs.storagePath); os.IsNotExist(err) {
+		return fmt.Errorf("destination folder does not exist: %v", fs.storagePath)
+	}
+
+	if data, err := json.MarshalIndent(srv, "", "  "); err != nil {
+		return err
+	} else {
+		if err := os.WriteFile(serviceFilePath, data, 0644); err != nil {
+			return fmt.Errorf("error saving service: %w", err)
+		}
+	}
+
+	if _, err := os.Stat(serviceFilePath); os.IsNotExist(err) {
+		return fmt.Errorf("file %s was not created", serviceFilePath)
+	}
+
+	return nil
+}
+
+// Retrieves a service by ID
+func (fs *FileSystemMemory) getServiceFromFile(id string) (*models.ClientService, error) {
+	serviceFilePath := filepath.Join(fs.storagePath, id+".json")
+
+	if file, err := os.ReadFile(serviceFilePath); err != nil {
+		if os.IsNotExist(err) {
+			return nil, errors.New("service not found")
+		}
+		return nil, err
+	} else {
+		var srv models.ClientService
+		if err := json.Unmarshal(file, &srv); err != nil {
+			return nil, err
+		}
+		return &srv, nil
+	}
+}
+
 // Deletes a service by ID
-func (fs *FileSystemMemory) DeleteService(id string) error {
-	fs.mutex.Lock()
-	defer fs.mutex.Unlock()
+func (fs *FileSystemMemory) deleteFile(id string) error {
 
 	serviceFilePath := filepath.Join(fs.storagePath, id+".json")
 

@@ -16,7 +16,6 @@ import (
 
 type ServiceManager struct {
 	usedPorts map[string]string
-	services  map[string]*models.ServerService
 	memory    interfaces.ServerMemory
 }
 
@@ -25,7 +24,6 @@ func NewServiceManager() *ServiceManager {
 
 	return &ServiceManager{
 		usedPorts: make(map[string]string),
-		services:  make(map[string]*models.ServerService),
 		memory:    &server_memory.FileSystemMemory{},
 	}
 }
@@ -39,35 +37,11 @@ func (sm *ServiceManager) Init() error {
 }
 
 func (sm *ServiceManager) loadService() error {
-	srvs, err := sm.memory.GetActiveServices()
-	if err != nil {
-		return err
-	}
-
-	for _, srv := range srvs {
+	for _, srv := range sm.memory.GetServices() {
 		if srv.TCP != nil {
-			go reversetunnel.StartRemoteTCPTunnel(srv.TCP.Proxy, srv.TCP.Client)
+			go reversetunnel.StartRemoteTCPTunnel(srv.TCP.Client, srv.TCP.Proxy)
 		}
-		sm.addService(srv)
 	}
-	return nil
-}
-
-func (sm *ServiceManager) addService(ps *models.ServerService) error {
-
-	if _, exists := sm.services[ps.Id]; exists {
-		return fmt.Errorf("service with id %s already exists", ps.Id)
-	}
-	sm.services[ps.Id] = ps
-	return nil
-}
-
-func (sm *ServiceManager) removeService(ps *models.ServerService) error {
-
-	if _, exists := sm.services[ps.Id]; !exists {
-		return fmt.Errorf("service with id %s not found", ps.Id)
-	}
-	delete(sm.services, ps.Id)
 	return nil
 }
 
