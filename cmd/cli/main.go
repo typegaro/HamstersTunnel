@@ -2,10 +2,11 @@ package main
 
 import (
 	"fmt"
+	"os"
+
 	"github.com/joho/godotenv"
 	"github.com/spf13/cobra"
 	"github.com/typegaro/HamstersTunnel/internal/cli"
-	"os"
 )
 
 var cliInstance *cli.CLI
@@ -70,6 +71,16 @@ var removeCmd = &cobra.Command{
 		cliInstance.RemoveService(id, remote)
 	},
 }
+var startCmd = &cobra.Command{
+	Use:   "start",
+	Short: "Start service by id",
+	Run: func(cmd *cobra.Command, args []string) {
+		remote, _ := cmd.Flags().GetBool("remote")
+		id, _ := cmd.Flags().GetString("id")
+
+		cliInstance.StartService(id, remote)
+	},
+}
 
 func main() {
 	err := godotenv.Load()
@@ -107,6 +118,10 @@ func main() {
 	rootCmd.AddCommand(removeCmd)
 	removeCmd.Flags().String("id", "", "Id of the service")
 	removeCmd.Flags().Bool("remote", false, "propagate command on the Server")
+
+	rootCmd.AddCommand(startCmd)
+	startCmd.Flags().String("id", "", "Id of the service")
+	startCmd.Flags().Bool("remote", false, "propagate command on the Server")
 
 	// Execute the command
 	rootCmd.Execute()

@@ -1,9 +1,9 @@
 package reversetunnel
 
 import (
-	"net"
 	"io"
 	"log"
+	"net"
 )
 
 func forwardData(src, dst net.Conn) {

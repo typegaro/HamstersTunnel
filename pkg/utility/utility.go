@@ -1,11 +1,12 @@
-package utitlity
+package utility
 
 func MapGetValues[K comparable, V any](m map[K]V) []V {
+	if len(m) == 0 {
+		return []V{}
+	}
 	values := make([]V, 0, len(m))
-	i := 0
 	for _, value := range m {
-		values[i] = value
-		i++
+		values = append(values, value)
 	}
 	return values
 }

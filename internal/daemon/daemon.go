@@ -14,9 +14,9 @@ import (
 	"github.com/typegaro/HamstersTunnel/internal/daemon/client_memory"
 	"github.com/typegaro/HamstersTunnel/pkg/command"
 	"github.com/typegaro/HamstersTunnel/pkg/interfaces"
-	"github.com/typegaro/HamstersTunnel/pkg/models/service"
+	models "github.com/typegaro/HamstersTunnel/pkg/models/service"
 	"github.com/typegaro/HamstersTunnel/pkg/reversetunnel"
-	"github.com/typegaro/HamstersTunnel/pkg/utility"
+	utitlity "github.com/typegaro/HamstersTunnel/pkg/utility"
 )
 
 type Daemon struct {
@@ -159,9 +159,10 @@ func sendHTTPRequest(method, url string, body io.Reader) (*http.Response, error)
 }
 
 func (d *Daemon) handleStart(conn net.Conn, command command.ServiceCommand) {
+	srv := d.memory.GetService(command.Id)
 	url := fmt.Sprintf(
 		"http://%s/service/%s/start",
-		d.memory.GetService(command.Id).Ip,
+		srv.Ip,
 		command.Id,
 	)
 
@@ -171,7 +172,6 @@ func (d *Daemon) handleStart(conn net.Conn, command command.ServiceCommand) {
 		return
 	}
 	defer resp.Body.Close()
-	srv := d.memory.GetService(command.Id)
 	srv.Active = true
 	if err := d.memory.EditService(srv); err != nil {
 		conn.Write([]byte("Error removing service: " + err.Error() + "\n"))
@@ -182,9 +182,10 @@ func (d *Daemon) handleStart(conn net.Conn, command command.ServiceCommand) {
 }
 
 func (d *Daemon) handleRemove(conn net.Conn, command command.ServiceCommand) {
+	srv := d.memory.GetService(command.Id)
 	url := fmt.Sprintf(
 		"http://%s/service/%s",
-		d.memory.GetService(command.Id).Ip,
+		srv.Ip,
 		command.Id,
 	)
 
@@ -204,15 +205,15 @@ func (d *Daemon) handleRemove(conn net.Conn, command command.ServiceCommand) {
 }
 
 func (d *Daemon) handleStop(conn net.Conn, command command.ServiceCommand) {
+	srv := d.memory.GetService(command.Id)
 	//Stop remote service
-	url := fmt.Sprintf("http://%s/service/%s/stop", command.Remote, command.Id)
+	url := fmt.Sprintf("http://%s/service/%s/stop", srv.Ip, command.Id)
 	resp, err := sendHTTPRequest("PUT", url, nil)
 	if err != nil {
 		conn.Write([]byte("Error: " + err.Error() + "\n"))
 		return
 	}
 	//Stop local service
-	srv := d.memory.GetService(command.Id)
 	srv.Active = false
 	defer resp.Body.Close()
 	if err := d.memory.EditService(srv); err != nil {
@@ -227,14 +228,34 @@ func (d *Daemon) handleList(conn net.Conn, command command.ListCommand) {
 
 	for _, s := range d.memory.GetServices() {
 		if s.Active || command.Inactive {
+			var tcpStr, udpStr, httpStr string
+
+			if s.TCP != nil {
+				tcpStr = s.TCP.Local + "->" + s.TCP.Remote
+			} else {
+				tcpStr = "N/A"
+			}
+
+			if s.UDP != nil {
+				udpStr = s.UDP.Local + "->" + s.UDP.Remote
+			} else {
+				udpStr = "N/A"
+			}
+
+			if s.HTTP != nil {
+				httpStr = s.HTTP.Local + "->" + s.HTTP.Remote
+			} else {
+				httpStr = "N/A"
+			}
+
 			output.WriteString(fmt.Sprintf("%s\t%s\t%s\t%t\t%s\t%s\t%s\n",
 				s.Id,
 				s.Name,
 				s.Ip,
 				s.Active,
-				utitlity.Ternary(s.TCP != nil, s.TCP.Local+"->"+s.TCP.Remote, "N/A"),
-				utitlity.Ternary(s.UDP != nil, s.UDP.Local+"->"+s.HTTP.Remote, "N/A"),
-				utitlity.Ternary(s.HTTP != nil, s.HTTP.Local+"->"+s.HTTP.Remote, "N/A"),
+				tcpStr,
+				udpStr,
+				httpStr,
 			))
 		}
 	}

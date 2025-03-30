@@ -10,7 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/typegaro/HamstersTunnel/internal/server/server_memory"
 	"github.com/typegaro/HamstersTunnel/pkg/interfaces"
-	"github.com/typegaro/HamstersTunnel/pkg/models/service"
+	models "github.com/typegaro/HamstersTunnel/pkg/models/service"
 	"github.com/typegaro/HamstersTunnel/pkg/reversetunnel"
 )
 

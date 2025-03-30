@@ -67,6 +67,12 @@ func (cli *CLI) StopService(id string, remote bool) {
 }
 
 // TODO: Implement this on deamon side
+func (cli *CLI) StartService(id string, remote bool) {
+	cmd := command.ServiceCommand{Command: "start", Id: id, Remote: remote}
+	cli.sendCommand(cmd)
+}
+
+// TODO: Implement this on deamon side
 func (cli *CLI) RemoveService(id string, remote bool) {
 	cmd := command.ServiceCommand{Command: "rm", Id: id, Remote: remote}
 	cli.sendCommand(cmd)

@@ -5,7 +5,7 @@ import (
 	"strconv"
 
 	"github.com/labstack/echo/v4"
-	"github.com/typegaro/HamstersTunnel/pkg/models/service"
+	models "github.com/typegaro/HamstersTunnel/pkg/models/service"
 )
 
 // Handler for creating a new service

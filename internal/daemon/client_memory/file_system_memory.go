@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/typegaro/HamstersTunnel/pkg/models/service"
+	models "github.com/typegaro/HamstersTunnel/pkg/models/service"
 	"github.com/typegaro/HamstersTunnel/pkg/utility"
 )
 
@@ -64,7 +64,7 @@ func (fd *FileSystemMemory) EditService(srv *models.ClientService) error {
 }
 
 func (fd *FileSystemMemory) GetServices() []*models.ClientService {
-	return utitlity.MapGetValues(fd.services)
+	return utility.MapGetValues(fd.services)
 }
 
 func (fd *FileSystemMemory) GetService(id string) *models.ClientService {
