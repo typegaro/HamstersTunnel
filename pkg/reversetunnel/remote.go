@@ -6,62 +6,61 @@ import (
 	"net"
 )
 
-func forwardData(src, dst net.Conn) {
+func forwardData(clientConn, userConn net.Conn) {
 	go func() {
-		_, err := io.Copy(dst, src)
+		_, err := io.Copy(userConn, clientConn)
 		if err != nil {
 			if err.Error() == "use of closed network connection" {
-				log.Println("Connection closed by src while forwarding data to dst.")
+				log.Println("Connection closed by client while forwarding data to user.")
 			} else {
-				log.Printf("Error forwarding data from src to dst: %v", err)
+				log.Printf("Error forwarding data from client to user: %v", err)
 			}
 		} else {
-			log.Println("Data forwarding from src to dst completed.")
+			log.Println("Data forwarding from client to user completed.")
 		}
 	}()
 
-	_, err := io.Copy(src, dst)
+	_, err := io.Copy(clientConn, userConn)
 	if err != nil {
 		if err.Error() == "use of closed network connection" {
-			log.Println("Connection closed by dst while forwarding data to src.")
+			log.Println("Connection closed by user while forwarding data to client.")
 		} else {
-			log.Printf("Error forwarding data from dst to src: %v", err)
+			log.Printf("Error forwarding data from user to client: %v", err)
 		}
 	} else {
-		log.Println("Data forwarding from dst to src completed.")
+		log.Println("Data forwarding from user to client completed.")
 	}
 }
 
-func StartRemoteTCPTunnel(clientPort, proxyPort string) error {
+func StartRemoteTCPTunnel(clientPort, userPort string) error {
 	clientListener, err := net.Listen("tcp", ":"+clientPort)
 	if err != nil {
 		log.Fatalf("Unable to start listener on public port %s: %v", clientPort, err)
 	}
-	defer clientListener.Close()
+	//defer clientListener.Close()
 
-	proxyListener, err := net.Listen("tcp", ":"+proxyPort)
+	userListener, err := net.Listen("tcp", ":"+userPort)
 	if err != nil {
-		log.Fatalf("Unable to start listener on proxy port %s: %v", proxyPort, err)
+		log.Fatalf("Unable to start listener on user port %s: %v", userPort, err)
 	}
-	defer proxyListener.Close()
+	defer userListener.Close()
 
-	log.Printf("Remote proxy listening on ports %s (client) and %s (proxy)", clientPort, proxyPort)
+	log.Printf("Remote proxy listening on ports %s (client) and %s (user)", clientPort, userPort)
 
-	proxyConn, err := proxyListener.Accept()
+	clientConn, err := clientListener.Accept()
 	if err != nil {
-		log.Fatalf("Error accepting connection from local proxy: %v", err)
+		log.Fatalf("Error accepting connection from client: %v", err)
 	}
-	log.Println("Connection established with local proxy.")
+	log.Println("Connection established with client.")
 
 	for {
-		clientConn, err := clientListener.Accept()
+		userConn, err := userListener.Accept()
 		if err != nil {
-			log.Printf("Error accepting connection from client: %v", err)
+			log.Printf("Error accepting connection from user: %v", err)
 			continue
 		}
 
-		log.Println("Connection established with client.")
-		go forwardData(clientConn, proxyConn)
-		go forwardData(proxyConn, clientConn)
+		log.Println("Connection established with user.")
+		go forwardData(clientConn, userConn)
 	}
 }

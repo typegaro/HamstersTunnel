@@ -1,11 +1,11 @@
 package interfaces
 
 import (
-	"github.com/typegaro/HamstersTunnel/pkg/models/service"
+	models "github.com/typegaro/HamstersTunnel/pkg/models/service"
 )
 
 type ServerMemory interface {
-	Init()
+	Init() error
 
 	AddService(srv *models.ServerService) error
 
@@ -21,7 +21,7 @@ type ServerMemory interface {
 }
 
 type ClientMemory interface {
-	Init()
+	Init() error
 
 	AddService(srv *models.ClientService) error
 

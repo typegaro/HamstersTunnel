@@ -17,20 +17,25 @@ type FileSystemMemory struct {
 }
 
 // Initializes the storage directory
-func (fs *FileSystemMemory) Init() {
-	baseDir, _ := os.Getwd()
+func (fs *FileSystemMemory) Init() error {
+	baseDir, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("failed to get working directory: %w", err)
+	}
 	fs.storagePath = filepath.Join(baseDir, ".config/data")
 
 	if err := os.MkdirAll(fs.storagePath, os.ModePerm); err != nil {
-		panic("failed to create directory: " + err.Error())
+		return fmt.Errorf("failed to create directory: %w", err)
 	}
 
 	fs.services = make(map[string]*models.ClientService)
-	if srvs, err := fs.getServicesFromFile(); err != nil {
+	srvs, err := fs.getServicesFromFile()
+	if err == nil {
 		for _, srv := range srvs {
 			fs.services[srv.Id] = srv
 		}
 	}
+	return nil
 }
 
 func (fd *FileSystemMemory) AddService(srv *models.ClientService) error {

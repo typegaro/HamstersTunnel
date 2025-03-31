@@ -30,12 +30,11 @@ func checkConnectionClosed(err error) string {
 	return "Unknown error: " + err.Error()
 }
 
-func localForwardData(src, dst net.Conn) {
-	defer src.Close()
-	defer dst.Close()
+func localForwardData(remoteConn, serviceConn net.Conn) {
+	defer serviceConn.Close()
 
 	go func() {
-		_, err := io.Copy(dst, src)
+		_, err := io.Copy(serviceConn, remoteConn)
 		if err != nil {
 			if !errors.Is(err, net.ErrClosed) {
 				log.Printf(
@@ -49,7 +48,7 @@ func localForwardData(src, dst net.Conn) {
 		}
 	}()
 
-	_, err := io.Copy(src, dst)
+	_, err := io.Copy(remoteConn, serviceConn)
 	if err != nil {
 		if !errors.Is(err, net.ErrClosed) {
 			log.Printf(
@@ -80,11 +79,8 @@ func StartLocalTCPTunnel(remotePort, servicePort string) {
 	log.Printf("Connected to local service: %s", servicePort)
 
 	// Forward data in both directions
-	go localForwardData(remoteConn, serviceConn)
-	go localForwardData(serviceConn, remoteConn)
+	localForwardData(remoteConn, serviceConn)
 
 	// Block the main function to keep connections active
-	//FIXME: Replace this select{} with a proper channel-based solution to handle connection termination and cleanup.
-	//Should implement a done channel to gracefully shut down goroutines and close connections when the tunnel is no longer needed.
 	select {}
 }
