@@ -84,5 +84,7 @@ func StartLocalTCPTunnel(remotePort, servicePort string) {
 	go localForwardData(serviceConn, remoteConn)
 
 	// Block the main function to keep connections active
+	//FIXME: Replace this select{} with a proper channel-based solution to handle connection termination and cleanup.
+	//Should implement a done channel to gracefully shut down goroutines and close connections when the tunnel is no longer needed.
 	select {}
 }

@@ -38,8 +38,10 @@ func (sm *ServiceManager) Init() error {
 
 func (sm *ServiceManager) loadService() error {
 	for _, srv := range sm.memory.GetServices() {
-		if srv.TCP != nil {
-			go reversetunnel.StartRemoteTCPTunnel(srv.TCP.Client, srv.TCP.Proxy)
+		if srv.Active {
+			if srv.TCP != nil {
+				go reversetunnel.StartRemoteTCPTunnel(srv.TCP.Client, srv.TCP.Proxy)
+			}
 		}
 	}
 	return nil

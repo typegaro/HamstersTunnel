@@ -35,10 +35,10 @@ func NewDaemon() *Daemon {
 func (d *Daemon) Init() {
 	d.memory.Init()
 	d.InitSocket()
+	defer d.listener.Close()
 	d.WakeUpServices()
 	for {
 		conn, err := d.listener.Accept()
-		defer d.listener.Close()
 		if err != nil {
 			log.Println("Connection error:", err)
 			continue
@@ -77,8 +77,10 @@ func (d *Daemon) InitSocket() {
 
 func (d *Daemon) WakeUpServices() error {
 	for _, srv := range d.memory.GetServices() {
-		if srv.TCP != nil {
-			go reversetunnel.StartLocalTCPTunnel(srv.TCP.Remote, srv.TCP.Local)
+		if srv.Active {
+			if srv.TCP != nil {
+				go reversetunnel.StartLocalTCPTunnel(srv.TCP.Remote, srv.TCP.Local)
+			}
 		}
 	}
 	return nil
